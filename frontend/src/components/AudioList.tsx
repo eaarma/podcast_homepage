@@ -90,7 +90,7 @@ export default function AudioList(): JSX.Element {
       setLoading(true);
       try {
         const res = await axios.get<AudioFile[]>(
-          "http://localhost:4000/audio/files",
+          "https://podcast-homepage.onrender.com/audio/files",
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const list = res.data || [];
@@ -156,7 +156,7 @@ export default function AudioList(): JSX.Element {
   const handleDownload = async (fileName: string) => {
     try {
       const response = await fetch(
-        `http://localhost:4000/audio/download/${fileName}`,
+        `https://podcast-homepage.onrender.com/audio/download/${fileName}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -180,9 +180,12 @@ export default function AudioList(): JSX.Element {
   const handleDelete = async (fileName: string) => {
     if (!window.confirm(`Delete file "${fileName}"?`)) return;
     try {
-      await axios.delete(`http://localhost:4000/audio/files/${fileName}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await axios.delete(
+        `https://podcast-homepage.onrender.com/audio/files/${fileName}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       setFiles((prev) => prev.filter((f) => f.name !== fileName));
     } catch (err) {
       console.error("Delete failed:", err);

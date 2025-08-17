@@ -223,10 +223,13 @@ export default function VoiceRecorder(): JSX.Element {
           : "0"
       );
 
-      const res = await fetch("http://localhost:4000/api/upload", {
-        method: "POST",
-        body: fd,
-      });
+      const res = await fetch(
+        "https://podcast-homepage.onrender.com/api/upload",
+        {
+          method: "POST",
+          body: fd,
+        }
+      );
 
       if (!res.ok) throw new Error("Upload failed");
 

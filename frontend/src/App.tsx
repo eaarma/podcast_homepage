@@ -8,7 +8,7 @@ function App() {
   const [contentData, setContentData] = useState<any>(null);
 
   useEffect(() => {
-    fetch("http://localhost:4000/api/content")
+    fetch("https://podcast-homepage.onrender.com/api/content")
       .then((res) => res.json())
       .then((data) => setContentData(data))
       .catch((err) => console.error("Failed to fetch content:", err));
