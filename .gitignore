@@ -30,7 +30,6 @@ build/
 # --- Environment / Secrets ---
 .env
 firebaseConfig.ts
-backend/firebase.js
 backend/firebaseServiceAccount.json
 backend/generateHash.js
 
