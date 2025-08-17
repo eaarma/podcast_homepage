@@ -17,7 +17,10 @@ const PORT = process.env.PORT || 4000;
 
 // Middleware
 const corsOptions = {
-  origin: "http://localhost:5173", // frontend URL during development
+  origin: [
+    "http://localhost:5173", // for local dev
+    "https://podcast-homepage.vercel.app", // deployed frontend
+  ],
   credentials: true,
 };
 
