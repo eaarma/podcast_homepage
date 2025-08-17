@@ -1,0 +1,30 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Dependencies
+node_modules/
+dist/
+build/
+
+# Environment files
+.env
+
+# Firebase & sensitive files
+firebase.js
+firebaseServiceAccount.json
+
+# Sensitive scripts (if they contain secrets)
+generateHash.js
+
+# Editor settings & system files
+.vscode/
+.idea/
+.DS_Store
+*.suo
+*.swp
+*.tmp

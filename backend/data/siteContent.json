@@ -1,0 +1,17 @@
+{
+  "coverImage": "/images/background.jpg",
+  "title": "Kirss Tordil",
+  "description": "Sul on mõni mure, küsimus, piinlik seik või lihtsalt teema, mille üle tahaks arutada? Jaga seda minuga häälsõnumis ja ma vastan sulle podcastis täpselt nii, nagu räägiksin oma parima sõbrannaga – ausalt, soojalt ja vahel veidikese huumoriga. 💕\nVõid olla täiesti sina ise või soovi korral saata sõnumi häälemoonutusega, et jääda anonüümseks – nii on lihtsam avada ka neid teemasid, mida sa ehk muidu ei jagaks.\nVõta hetk, vajuta “Salvesta” ja räägi ära – ükski teema pole liiga väike või liiga suur. 🍒\n\n*Kingituste loosimises osalemiseks jäta oma telefoninumber – seda näen vaid mina ja kasutan ainult võidu korral ühenduse võtmiseks.\n",
+  "videoLink": {
+    "title": "Last Episode",
+    "youtubeLink": "https://www.youtube.com/embed/dQw4w9WgXcQ"
+  },
+  "socials": {
+    "spotify": "https://spotify.com/yourpage",
+    "youtube": "https://www.youtube.com/",
+    "instagram": "https://instagram.com/yourhandle"
+  },
+  "footer": {
+    "brand": "y r u gae?"
+  }
+}

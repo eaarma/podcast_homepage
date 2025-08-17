@@ -1,0 +1,40 @@
+# --- General ---
+.DS_Store
+*.log
+logs
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# --- Node ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# --- Build outputs ---
+dist/
+dist-ssr/
+build/
+*.local
+
+# --- Editor directories and files ---
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# --- Environment / Secrets ---
+.env
+firebaseConfig.ts
+backend/firebase.js
+backend/firebaseServiceAccount.json
+backend/generateHash.js
+
+# --- Optional: lockfiles if you don’t want them in git ---
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml

@@ -1,0 +1,17 @@
+{
+  "coverImage": "/images/default.jpg",
+  "title": "Welcome to the Show",
+  "description": "Join us every week for new episodes.",
+  "videoLink": {
+    "title": "Last Episode:",
+    "youtubeLink": "https://www.youtube.com/embed/dQw4w9WgXcQ"
+  },
+  "socials": {
+    "spotify": "https://spotify.com/yourpage",
+    "youtube": "https://youtube.com/yourchannel",
+    "instagram": "https://instagram.com/yourhandle"
+  },
+  "footer": {
+    "brand": "Brand name"
+  }
+}
