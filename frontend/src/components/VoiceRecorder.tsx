@@ -329,7 +329,9 @@ export default function VoiceRecorder(): JSX.Element {
                 />
               </div>
               <p className="text-xs text-gray-400 mb-4">
-                * Include phone number for prize lottery (not mandatory)
+                *Kingituste loosimises osalemiseks jäta oma telefoninumber –
+                seda näen vaid mina ja kasutan ainult võidu korral ühenduse
+                võtmiseks.
               </p>
 
               <label className="block text-sm font-medium">

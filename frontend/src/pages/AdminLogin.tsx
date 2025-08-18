@@ -21,7 +21,9 @@ export default function AdminLogin() {
         const data = await res.json();
         localStorage.setItem("admin-token", data.token);
         // ✅ Force navigation AFTER token is stored
-        navigate("/admin/dashboard", { replace: true });
+        navigate("/admin/dashboard", {
+          replace: true,
+        });
       } else {
         alert("Invalid credentials");
       }
