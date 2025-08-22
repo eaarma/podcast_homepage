@@ -108,19 +108,16 @@ export default function VoiceRecorder(): JSX.Element {
     Record<VoiceType, Blob | null>
   >({
     voice1: null,
-    voice2: null,
   });
   const [processedURLs, setProcessedURLs] = useState<
     Record<VoiceType, string | null>
   >({
     voice1: null,
-    voice2: null,
   });
   const [processedDurations, setProcessedDurations] = useState<
     Record<VoiceType, number>
   >({
     voice1: 0,
-    voice2: 0,
   });
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);

@@ -21,10 +21,7 @@ function App() {
   return (
     <div className="flex flex-col min-h-screen items-center">
       <div className="w-full">
-        <Header
-          desktop="https://podcast-homepage.onrender.com/images/background.jpg"
-          mobile="https://podcast-homepage.onrender.com/images/background-small.jpg"
-        />
+        <Header />
       </div>
 
       <main className="flex-grow flex flex-col items-center justify-start w-full max-w-screen-md px-4">
