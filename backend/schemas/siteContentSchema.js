@@ -2,6 +2,7 @@ export const siteContentSchema = {
   type: "object",
   required: [
     "coverImage",
+    "mobileImage", // <-- add here
     "title",
     "description",
     "videoLink",
@@ -11,6 +12,7 @@ export const siteContentSchema = {
   additionalProperties: false,
   properties: {
     coverImage: { type: "string" },
+    mobileImage: { type: "string" }, // <-- add here
     title: { type: "string" },
     description: { type: "string" },
     videoLink: {

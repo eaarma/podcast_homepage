@@ -5,12 +5,16 @@ import { verifyToken } from "../middleware/verifyToken.js"; // Adjust path as ne
 
 const router = express.Router();
 
+// Multer storage with dynamic filename
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, "public/images/");
   },
   filename: (req, file, cb) => {
-    cb(null, "background.jpg");
+    // `type` query decides whether it's desktop or mobile
+    const type =
+      req.query.type === "mobile" ? "background-small.jpg" : "background.jpg";
+    cb(null, type);
   },
 });
 
@@ -29,17 +33,18 @@ const upload = multer({
   },
 });
 
-// ✅ Apply verifyToken here
+// ✅ Apply verifyToken
 router.post("/", verifyToken, upload.single("image"), (req, res) => {
-  console.log(req.file);
-
   if (!req.file) {
     return res.status(400).json({ error: "No image uploaded" });
   }
 
+  const isMobile = req.query.type === "mobile";
+  const fileName = isMobile ? "background-small.jpg" : "background.jpg";
+
   return res.json({
     message: "Image uploaded successfully",
-    imageUrl: `/images/background.jpg`,
+    imageUrl: `/images/${fileName}`,
   });
 });
 
