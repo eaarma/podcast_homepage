@@ -4,10 +4,9 @@ import { processAndCompress } from "../utils/audioUtils";
 import type { VoiceType } from "../utils/audioUtils"; // type-only import
 import RecorderButton from "./RecorderButton";
 
-const VOICE_LIST: VoiceType[] = ["voice1", "voice2"];
+const VOICE_LIST: VoiceType[] = ["voice1"];
 const VOICE_LABELS: Record<VoiceType, string> = {
   voice1: "Voice 1",
-  voice2: "Voice 2",
 };
 
 /* -------------------- Helpers -------------------- */
@@ -225,9 +224,9 @@ export default function VoiceRecorder(): JSX.Element {
     VOICE_LIST.forEach((v) => {
       if (processedURLs[v]) URL.revokeObjectURL(processedURLs[v]!);
     });
-    setProcessedURLs({ voice1: null, voice2: null });
-    setProcessedBlobs({ voice1: null, voice2: null });
-    setProcessedDurations({ voice1: 0, voice2: 0 });
+    setProcessedURLs({ voice1: null });
+    setProcessedBlobs({ voice1: null });
+    setProcessedDurations({ voice1: 0 });
 
     const total = VOICE_LIST.length;
 
@@ -351,9 +350,9 @@ export default function VoiceRecorder(): JSX.Element {
       const u = processedURLs[v];
       if (u) URL.revokeObjectURL(u);
     });
-    setProcessedURLs({ voice1: null, voice2: null });
-    setProcessedBlobs({ voice1: null, voice2: null });
-    setProcessedDurations({ voice1: 0, voice2: 0 });
+    setProcessedURLs({ voice1: null });
+    setProcessedBlobs({ voice1: null });
+    setProcessedDurations({ voice1: 0 });
     setOriginalBlob(null);
     setOriginalDuration(0);
     setPlayerStateMap({});
@@ -461,24 +460,11 @@ export default function VoiceRecorder(): JSX.Element {
           {originalURL && (
             <div>
               <label className="block text-sm font-medium mb-2">
-                Muudetud hääled:
+                Muudetud häälega:
               </label>
               {VOICE_LIST.map((v) => (
                 <div key={v} className="mb-4 p-2 bg-pink-300 rounded">
-                  <div className="flex items-center justify-between mb-1">
-                    <span>{VOICE_LABELS[v]}</span>
-                    <div className="space-x-2">
-                      {processedBlobs[v] && (
-                        <button
-                          onClick={() => handleUpload(false, v)}
-                          className="bg-purple-600 px-2 py-1 rounded hover:bg-purple-700 text-secondary"
-                          disabled={isProcessing}
-                        >
-                          Saada
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                  <div className="flex items-center justify-between mb-1"></div>
 
                   {processedURLs[v] ? (
                     <CustomAudioPlayer
@@ -493,6 +479,18 @@ export default function VoiceRecorder(): JSX.Element {
                       Not generated yet
                     </div>
                   )}
+
+                  <div className="flex justify-end space-x-2">
+                    {processedBlobs[v] && (
+                      <button
+                        onClick={() => handleUpload(false, v)}
+                        className="bg-purple-600 px-2 py-1 rounded hover:bg-purple-700 text-secondary"
+                        disabled={isProcessing}
+                      >
+                        Saada
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

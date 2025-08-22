@@ -1,54 +1,27 @@
-// Client-side audio processing -> compressed blob using MediaRecorder (Opus/WebM).
-// No external libs required.
+// Only one voice left
+export type VoiceType = "voice1";
 
-export type VoiceType = "voice1" | "voice2";
-
-export interface CompressOptions {
-  targetSampleRate?: number; // e.g. 22050
-  channels?: number; // 1 = mono, 2 = stereo
-  audioBitsPerSecond?: number; // e.g. 64000
-}
-
-/**
- * processAndCompress:
- * - decodes input blob into an AudioBuffer
- * - applies simple effect chain (playbackRate + filters) in OfflineAudioContext
- * - renders an AudioBuffer at targetSampleRate / channels
- * - plays the rendered buffer into a MediaStreamDestination
- * - records the destination with MediaRecorder using Opus/WebM (if supported)
- *
- * Returns: { blob, mimeType, duration } where duration is seconds (float)
- */
 export async function processAndCompress(
   inBlob: Blob,
   voice: VoiceType,
   opts: CompressOptions = {}
 ): Promise<{ blob: Blob; mimeType: string; duration: number }> {
-  const {
-    targetSampleRate = 22050,
-    channels = 1,
-    audioBitsPerSecond = 64000, // unused now
-  } = opts;
+  const { targetSampleRate = 22050, channels = 1 } = opts;
 
-  // 1) decode incoming blob to AudioBuffer
+  // 1) decode incoming blob
   const abuf = await decodeBlobToAudioBuffer(inBlob);
 
-  // 2) pick effect parameters per voice
+  // 2) voice effect parameters
   let playbackRate = 1.0;
   const filters: { type: string; value?: number; gain?: number }[] = [];
 
-  switch (voice) {
-    case "voice1":
-      playbackRate = 1.35;
-      filters.push({ type: "highshelf", value: 3000, gain: 6 });
-      break;
-    case "voice2":
-      playbackRate = 0.9;
-      filters.push({ type: "lowpass", value: 3500 });
-      break;
+  if (voice === "voice1") {
+    playbackRate = 1.15; // subtle lift, less chipmunk
+    filters.push({ type: "highshelf", value: 4000, gain: 3 }); // gentle brightness
+    filters.push({ type: "lowshelf", value: 200, gain: 2 }); // warmth
   }
 
-  // 3) build OfflineAudioContext
+  // 3) offline rendering setup
   const outSamples = Math.ceil(
     (abuf.length / playbackRate) * (targetSampleRate / abuf.sampleRate)
   );
@@ -58,7 +31,7 @@ export async function processAndCompress(
     targetSampleRate
   );
 
-  // 4) create source buffer and downmix/upmix
+  // 4) prepare buffer (mono/stereo handling)
   const srcBuffer = offline.createBuffer(
     channels,
     abuf.length,
@@ -85,37 +58,29 @@ export async function processAndCompress(
   src.buffer = srcBuffer;
   src.playbackRate.value = playbackRate;
 
-  // 5) apply filter chain
+  // 5) apply filters
   let nodeChain: AudioNode = src;
   for (const f of filters) {
     const bq = offline.createBiquadFilter();
-    if (f.type === "highshelf") {
-      bq.type = "highshelf";
-      bq.frequency.value = f.value || 3000;
-      if (typeof f.gain === "number") bq.gain.value = f.gain;
-    } else if (f.type === "lowpass") {
-      bq.type = "lowpass";
-      bq.frequency.value = f.value || 3000;
-    } else if (f.type === "highpass") {
-      bq.type = "highpass";
-      bq.frequency.value = f.value || 300;
-    }
+    bq.type = f.type as BiquadFilterType;
+    if (f.value) bq.frequency.value = f.value;
+    if (typeof f.gain === "number") bq.gain.value = f.gain;
     nodeChain.connect(bq);
     nodeChain = bq;
   }
 
   nodeChain.connect(offline.destination);
 
-  // 6) render audio
+  // 6) render
   src.start();
   const rendered = await offline.startRendering();
 
-  // 7) convert rendered AudioBuffer to WAV blob
+  // 7) output as WAV
   const wavBlob = audioBufferToWavBlob(rendered);
 
   try {
     offline.close();
-  } catch (_) {}
+  } catch {}
 
   return {
     blob: wavBlob,
@@ -124,7 +89,7 @@ export async function processAndCompress(
   };
 }
 
-/** Helper: decode Blob to AudioBuffer */
+/** Blob → AudioBuffer */
 async function decodeBlobToAudioBuffer(blob: Blob): Promise<AudioBuffer> {
   const arrayBuffer = await blob.arrayBuffer();
   const Ctx = window.AudioContext || (window as any).webkitAudioContext;
@@ -132,17 +97,17 @@ async function decodeBlobToAudioBuffer(blob: Blob): Promise<AudioBuffer> {
   const decoded = await ctx.decodeAudioData(arrayBuffer);
   try {
     ctx.close();
-  } catch (_) {}
+  } catch {}
   return decoded;
 }
 
-/** Helper: convert AudioBuffer -> WAV Blob (PCM16) fallback */
+/** AudioBuffer → WAV Blob */
 function audioBufferToWavBlob(buffer: AudioBuffer): Blob {
   const numChannels = buffer.numberOfChannels;
   const sampleRate = buffer.sampleRate;
   const bitDepth = 16;
 
-  // interleave channels
+  // interleave
   let interleaved: Float32Array;
   if (numChannels === 2) {
     const left = buffer.getChannelData(0);
@@ -168,6 +133,7 @@ function audioBufferToWavBlob(buffer: AudioBuffer): Blob {
       view.setUint8(offset + i, str.charCodeAt(i));
   }
 
+  // WAV header
   writeString(view, 0, "RIFF");
   view.setUint32(4, 36 + interleaved.length * bytesPerSample, true);
   writeString(view, 8, "WAVE");
@@ -182,11 +148,12 @@ function audioBufferToWavBlob(buffer: AudioBuffer): Blob {
   writeString(view, 36, "data");
   view.setUint32(40, interleaved.length * bytesPerSample, true);
 
+  // PCM samples
   let offset = 44;
   for (let i = 0; i < interleaved.length; i++, offset += 2) {
     const s = Math.max(-1, Math.min(1, interleaved[i]));
     view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
   }
 
-  return new Blob([view], { type: "audio/webm" });
+  return new Blob([view], { type: "audio/wav" });
 }
