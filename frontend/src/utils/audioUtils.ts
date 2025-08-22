@@ -1,7 +1,7 @@
 // Client-side audio processing -> compressed blob using MediaRecorder (Opus/WebM).
 // No external libs required.
 
-export type VoiceType = "voice1" | "voice2" | "voice3" | "voice4";
+export type VoiceType = "voice1" | "voice2";
 
 export interface CompressOptions {
   targetSampleRate?: number; // e.g. 22050
@@ -27,7 +27,7 @@ export async function processAndCompress(
   const {
     targetSampleRate = 22050,
     channels = 1,
-    audioBitsPerSecond = 64000,
+    audioBitsPerSecond = 64000, // unused now
   } = opts;
 
   // 1) decode incoming blob to AudioBuffer
@@ -36,7 +36,6 @@ export async function processAndCompress(
   // 2) pick effect parameters per voice
   let playbackRate = 1.0;
   const filters: { type: string; value?: number; gain?: number }[] = [];
-  let extraProcess: "delay" | "none" = "none";
 
   switch (voice) {
     case "voice1":
@@ -47,20 +46,9 @@ export async function processAndCompress(
       playbackRate = 0.9;
       filters.push({ type: "lowpass", value: 3500 });
       break;
-    case "voice3":
-      playbackRate = 1.05;
-      filters.push({ type: "highpass", value: 300 });
-      filters.push({ type: "lowpass", value: 3000 });
-      break;
-    case "voice4":
-      playbackRate = 0.95;
-      filters.push({ type: "lowpass", value: 5000 });
-      extraProcess = "delay";
-      break;
   }
 
-  // 3) build OfflineAudioContext with targetSampleRate and channel count
-  // estimate length (samples) after playbackRate adjustment
+  // 3) build OfflineAudioContext
   const outSamples = Math.ceil(
     (abuf.length / playbackRate) * (targetSampleRate / abuf.sampleRate)
   );
@@ -70,7 +58,7 @@ export async function processAndCompress(
     targetSampleRate
   );
 
-  // 4) create source buffer: downmix to `channels` if needed
+  // 4) create source buffer and downmix/upmix
   const srcBuffer = offline.createBuffer(
     channels,
     abuf.length,
@@ -86,7 +74,6 @@ export async function processAndCompress(
       out[i] = sum / abuf.numberOfChannels;
     }
   } else {
-    // copy channels up to available channels (simple copy)
     for (let ch = 0; ch < channels; ch++) {
       const out = srcBuffer.getChannelData(ch);
       const inCh = Math.min(ch, abuf.numberOfChannels - 1);
@@ -98,7 +85,7 @@ export async function processAndCompress(
   src.buffer = srcBuffer;
   src.playbackRate.value = playbackRate;
 
-  // 5) set up filters chain
+  // 5) apply filter chain
   let nodeChain: AudioNode = src;
   for (const f of filters) {
     const bq = offline.createBiquadFilter();
@@ -117,135 +104,24 @@ export async function processAndCompress(
     nodeChain = bq;
   }
 
-  // extra process (simple feedback delay)
-  if (extraProcess === "delay") {
-    const delay = offline.createDelay(1.0);
-    delay.delayTime.value = 0.12;
-    const fb = offline.createGain();
-    fb.gain.value = 0.28;
-    nodeChain.connect(delay);
-    delay.connect(fb);
-    fb.connect(delay);
-    // also route dry signal
-    const dryGain = offline.createGain();
-    dryGain.gain.value = 0.9;
-    nodeChain.connect(dryGain);
-    dryGain.connect(offline.destination);
-    delay.connect(offline.destination);
-    src.start(0);
-  } else {
-    nodeChain.connect(offline.destination);
-    src.start(0);
-  }
+  nodeChain.connect(offline.destination);
 
-  // 6) render offline
+  // 6) render audio
+  src.start();
   const rendered = await offline.startRendering();
-  // rendered.duration is available here
 
-  // 7) convert rendered AudioBuffer into a MediaStream and record with MediaRecorder (Opus/WebM if supported)
-  // Create a new AudioContext for playback at the same sampleRate as rendered
-  const playCtx = new (window.AudioContext ||
-    (window as any).webkitAudioContext)({ sampleRate: rendered.sampleRate });
+  // 7) convert rendered AudioBuffer to WAV blob
+  const wavBlob = audioBufferToWavBlob(rendered);
 
-  // create buffer source in playCtx
-  const playSrc = playCtx.createBufferSource();
-  playSrc.buffer = rendered;
-
-  // create destination (MediaStream) and connect
-  const dest = playCtx.createMediaStreamDestination();
-  playSrc.connect(dest);
-
-  // also route to silent destination so we don't play to speakers
-  const gainNode = playCtx.createGain();
-  gainNode.gain.value = 0;
-  playSrc.connect(gainNode);
-  gainNode.connect(playCtx.destination);
-
-  // choose mimeType for MediaRecorder
-  const candidateTypes = [
-    "audio/webm;codecs=opus",
-    "audio/ogg;codecs=opus",
-    "audio/webm",
-    "audio/ogg",
-  ];
-  let mimeType: string | null = null;
-  for (const t of candidateTypes) {
-    try {
-      if (
-        (MediaRecorder as any).isTypeSupported &&
-        (MediaRecorder as any).isTypeSupported(t)
-      ) {
-        mimeType = t;
-        break;
-      }
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  // If no compressed mimeType supported, fallback to WAV blob
-  if (!mimeType) {
-    // create WAV fallback (rendered already present)
-    const wavBlob = audioBufferToWavBlob(rendered);
-    try {
-      playCtx.close();
-    } catch (_) {}
-    try {
-      offline.close();
-    } catch (_) {}
-    return {
-      blob: wavBlob,
-      mimeType: "audio/wav",
-      duration: rendered.duration,
-    };
-  }
-
-  const options: MediaRecorderOptions = {
-    mimeType,
-    // @ts-ignore - audioBitsPerSecond is supported in MediaRecorder options in many browsers
-    audioBitsPerSecond: audioBitsPerSecond,
-  };
-
-  const recorder = new MediaRecorder(dest.stream, options);
-  const chunks: Blob[] = [];
-  recorder.ondataavailable = (ev) => {
-    if (ev.data && ev.data.size > 0) chunks.push(ev.data);
-  };
-
-  const finishedPromise = new Promise<Blob>((resolve, reject) => {
-    recorder.onstop = () => {
-      const out = new Blob(chunks, { type: mimeType! });
-      resolve(out);
-    };
-    recorder.onerror = (ev) => reject(ev);
-  });
-
-  // start recording + playback
-  recorder.start();
-  playSrc.start();
-
-  // stop after rendered.duration (plus small buffer)
-  const stopAfterMs = Math.ceil(rendered.duration * 1000) + 300;
-  await new Promise((r) => setTimeout(r, stopAfterMs));
-
-  try {
-    playSrc.stop();
-  } catch (e) {
-    // ignore
-  }
-  recorder.stop();
-
-  const outBlob = await finishedPromise;
-
-  // cleanup
-  try {
-    playCtx.close();
-  } catch (_) {}
   try {
     offline.close();
   } catch (_) {}
 
-  return { blob: outBlob, mimeType: mimeType!, duration: rendered.duration };
+  return {
+    blob: wavBlob,
+    mimeType: "audio/wav",
+    duration: rendered.duration,
+  };
 }
 
 /** Helper: decode Blob to AudioBuffer */
@@ -312,5 +188,5 @@ function audioBufferToWavBlob(buffer: AudioBuffer): Blob {
     view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
   }
 
-  return new Blob([view], { type: "audio/wav" });
+  return new Blob([view], { type: "audio/webm" });
 }

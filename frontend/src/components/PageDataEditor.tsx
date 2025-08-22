@@ -19,6 +19,12 @@ const PageDataEditor = () => {
   const [previewImage, setPreviewImage] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
+  const useProd = true; // flip this for testing
+
+  const API_BASE = useProd
+    ? "https://podcast-homepage.onrender.com"
+    : "http://localhost:4000";
+
   useEffect(() => {
     if (!token) {
       setAuthorized(false);
@@ -26,7 +32,7 @@ const PageDataEditor = () => {
       return;
     }
 
-    fetch("https://podcast-homepage.onrender.com/api/content", {
+    fetch(`${API_BASE}/api/content`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -75,16 +81,13 @@ const PageDataEditor = () => {
       const form = new FormData();
       form.append("image", selectedFile);
 
-      const res = await fetch(
-        "https://podcast-homepage.onrender.com/uploadimage",
-        {
-          method: "POST",
-          body: form,
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const res = await fetch(`${API_BASE}/uploadimage`, {
+        method: "POST",
+        body: form,
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       if (!res.ok) {
         alert("Image upload failed.");
@@ -113,17 +116,14 @@ const PageDataEditor = () => {
       },
     };
 
-    const res = await fetch(
-      "https://podcast-homepage.onrender.com/api/content",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      }
-    );
+    const res = await fetch(`${API_BASE}/api/content`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
 
     if (res.ok) {
       alert("Content updated successfully!");

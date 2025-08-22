@@ -6,6 +6,8 @@ type PlayerState = {
   volume: number;
 };
 
+const EPS = 0.075; // 75 ms is plenty to hide initial blip
+
 /** module-level single playback manager to avoid races */
 let currentAudioEl: HTMLAudioElement | null = null;
 function requestPlay(url: string, el: HTMLAudioElement) {
@@ -102,24 +104,34 @@ export default function CustomAudioPlayer({
       const dur = Number(el.duration);
       if (isFinite(dur) && dur > 0) {
         setLocalDuration(dur);
-        // reset currentTime to 0 for consistent UI
         try {
           el.currentTime = 0;
         } catch {}
+        setCurrent(0);
         stopProbe(el);
       }
     };
 
     const onTimeUpdate = () => {
-      const dur = Number(el.duration);
-      if (isFinite(dur) && dur > 0) {
-        setLocalDuration(dur);
-        try {
-          el.currentTime = 0;
-        } catch {}
-        stopProbe(el);
-      }
+      const t = audioRef.current?.currentTime ?? 0;
+      const clamped = t < EPS ? 0 : t;
+      setCurrent(clamped);
+      setPlayerStateMap((prev) => ({
+        ...prev,
+        [url]: {
+          ...(prev[url] || { playing: false, current: 0, volume: vol }),
+          playing,
+          current: clamped,
+          volume: vol,
+        },
+      }));
     };
+
+    // when resetting to start (loadedmetadata / end / probe success)
+    try {
+      el.currentTime = 0;
+    } catch {}
+    setCurrent(0);
 
     el.addEventListener("durationchange", onDurationChange);
     el.addEventListener("timeupdate", onTimeUpdate);
@@ -230,6 +242,7 @@ export default function CustomAudioPlayer({
       setVol(state.volume);
       if (audioRef.current) audioRef.current.volume = state.volume;
     }
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playerStateMap]);
 
@@ -414,17 +427,21 @@ export default function CustomAudioPlayer({
           step="0.01"
           value={Math.min(current, localDuration || 0)}
           onChange={(e) => onSeek(Number(e.target.value))}
-          className="flex-1 min-w-0 mx-2"
-          disabled={disabled || !localDuration}
-          aria-label="Seek"
+          className="media-range flex-1 min-w-0 mx-2"
+          style={{
+            // percent of current relative to max
+            ["--range-progress" as any]: `${
+              localDuration ? (current / localDuration) * 100 : 0
+            }%`,
+          }}
         />
 
-        <div className="text-sm text-white font-mono whitespace-nowrap w-20 text-right">
+        <div className="text-sm text-white font-mono whitespace-nowrap w-20 text-right m-2">
           {formatTime(current)} / {formatTime(localDuration)}
         </div>
 
         <div className="flex items-center space-x-2 ml-2 w-28">
-          <span className="text-sm text-gray-300" aria-hidden>
+          <span className="text-sm text-gray-300" aria-hidden m-2>
             {VolumeSVG}
           </span>
           <input
@@ -434,8 +451,11 @@ export default function CustomAudioPlayer({
             step={0.01}
             value={vol}
             onChange={(e) => onVolume(Number(e.target.value))}
-            className="w-full"
+            className="media-range w-full"
             aria-label="Volume"
+            style={{
+              ["--range-progress" as any]: `${vol * 100}%`,
+            }}
           />
         </div>
       </div>

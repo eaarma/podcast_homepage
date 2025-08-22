@@ -33,8 +33,8 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  --color-primary: #d20a2e; /* blue-800 */
-  --color-secondary: #f2adc9;
+  --color-primary: #6896da; /* blue-800 */
+  --color-secondary: #d20a2e;
   --color-background: #fff4ef;
   --color-surface: #ffffff; /* white */
   --color-text: #d20a2e;
@@ -147,4 +147,66 @@ select:focus {
     background-color: var(--color-primary);
     color: var(--color-surface);
   }
+}
+
+/* === media range reset (works in Chrome, Safari, Firefox) === */
+/* === volume range reset === */
+input[type="range"].media-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  background: transparent;
+  margin: 0;
+  padding: 0;
+}
+
+/* Track gradient for WebKit */
+input[type="range"].media-range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 9999px;
+  border: 0;
+  background: linear-gradient(
+    to right,
+    #ec4899 var(--range-progress, 0%),
+    /* pink-500 */ #6b7280 var(--range-progress, 0%) /* gray-500 */
+  );
+}
+
+/* Firefox */
+input[type="range"].media-range::-moz-range-progress {
+  height: 6px;
+  border-radius: 9999px;
+  background: #ec4899; /* pink-500 */
+}
+input[type="range"].media-range::-moz-range-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: #6b7280; /* gray-500 */
+}
+
+/* Thumb */
+input[type="range"].media-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 12px;
+  width: 12px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 2px solid #7c3aed; /* purple-600 */
+  margin-top: -3px; /* center thumb on 6px track */
+}
+input[type="range"].media-range::-moz-range-thumb {
+  height: 12px;
+  width: 12px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 2px solid #7c3aed;
+}
+
+/* Focus style */
+input[type="range"].media-range:focus {
+  outline: none;
+}
+input[type="range"].media-range:focus-visible {
+  outline: 2px solid #7c3aed;
+  outline-offset: 2px;
 }

@@ -29,6 +29,12 @@ export default function AudioList(): JSX.Element {
 
   const token = localStorage.getItem("admin-token");
 
+  const useProd = true; // flip this for testing
+
+  const API_BASE = useProd
+    ? "https://podcast-homepage.onrender.com"
+    : "http://localhost:4000";
+
   useEffect(() => {
     if (!token) {
       setLoading(false);
@@ -89,10 +95,9 @@ export default function AudioList(): JSX.Element {
     const fetchFiles = async () => {
       setLoading(true);
       try {
-        const res = await axios.get<AudioFile[]>(
-          "https://podcast-homepage.onrender.com/audio/files",
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        const res = await axios.get<AudioFile[]>(`${API_BASE}/audio/files`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const list = res.data || [];
 
         // prepare playerStateMap keys
@@ -102,40 +107,33 @@ export default function AudioList(): JSX.Element {
         });
         setPlayerStateMap(initialMap);
 
-        // Normalize durations from server and fallback if necessary.
-        // We'll compute durations in parallel but keep a small concurrency implicitly via Promise.all().
+        // Normalize durations
         const enriched = await Promise.all(
           list.map(async (f) => {
-            // serverDuration might be number or string (coerce safely)
             const raw = (f as any).duration;
             let dur = 0;
 
             if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) {
               dur = raw;
             } else if (typeof raw === "string" && raw.trim() !== "") {
-              // trim commas/spaces just in case (some headers can have trailing commas)
               const cleaned = raw.replace(",", "").trim();
               const parsed = Number.parseFloat(cleaned);
               if (Number.isFinite(parsed) && parsed > 0) dur = parsed;
             }
 
-            // If server did not provide a valid duration, fallback to audio element
             if (!Number.isFinite(dur) || dur <= 0) {
-              // try audio element fallback (short timeout)
               try {
                 dur = await fallbackDurationFromAudioElement(f.url, 5000);
                 if (!Number.isFinite(dur)) dur = 0;
-              } catch (err) {
+              } catch {
                 dur = 0;
               }
             }
 
-            // return item with normalized duration
             return { ...f, duration: dur };
           })
         );
 
-        // set durations map and files state
         const map: Record<string, number> = {};
         enriched.forEach((f) => {
           map[f.url] = f.duration ?? 0;
@@ -155,12 +153,9 @@ export default function AudioList(): JSX.Element {
 
   const handleDownload = async (fileName: string) => {
     try {
-      const response = await fetch(
-        `https://podcast-homepage.onrender.com/audio/download/${fileName}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await fetch(`${API_BASE}/audio/download/${fileName}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok) throw new Error("Download failed");
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
@@ -180,12 +175,9 @@ export default function AudioList(): JSX.Element {
   const handleDelete = async (fileName: string) => {
     if (!window.confirm(`Delete file "${fileName}"?`)) return;
     try {
-      await axios.delete(
-        `https://podcast-homepage.onrender.com/audio/files/${fileName}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      await axios.delete(`${API_BASE}/audio/files/${fileName}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setFiles((prev) => prev.filter((f) => f.name !== fileName));
     } catch (err) {
       console.error("Delete failed:", err);

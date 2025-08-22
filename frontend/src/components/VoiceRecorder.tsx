@@ -1,14 +1,175 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import CustomAudioPlayer from "./CustomAudioPlayer";
 import { processAndCompress } from "../utils/audioUtils";
 import type { VoiceType } from "../utils/audioUtils"; // type-only import
 import RecorderButton from "./RecorderButton";
 
-const VOICE_LIST: VoiceType[] = ["voice1", "voice2"]; // only two voices now
+import lamejs from "@breezystack/lamejs";
+
+const VOICE_LIST: VoiceType[] = ["voice1", "voice2"];
 const VOICE_LABELS: Record<VoiceType, string> = {
   voice1: "Voice 1",
   voice2: "Voice 2",
 };
+
+/* -------------------- Helpers -------------------- */
+
+async function decodeBlobToAudioBuffer(blob: Blob): Promise<AudioBuffer> {
+  const arrayBuffer = await blob.arrayBuffer();
+  const Ctx = (window.AudioContext || (window as any).webkitAudioContext) as
+    | typeof AudioContext
+    | undefined;
+  if (!Ctx) throw new Error("No AudioContext available");
+  const ctx = new Ctx();
+  try {
+    // decodeAudioData returns a Promise in modern browsers
+    const audioBuf = await ctx.decodeAudioData(arrayBuffer);
+    return audioBuf;
+  } finally {
+    try {
+      ctx.close();
+    } catch {}
+  }
+}
+
+function floatTo16BitPCM(float32: Float32Array) {
+  const out = new Int16Array(float32.length);
+  for (let i = 0; i < float32.length; i++) {
+    let s = Math.max(-1, Math.min(1, float32[i]));
+    out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+  }
+  return out;
+}
+
+/**
+ * Try to convert an AudioBuffer to MP3 bytes using lamejs.
+ * If lamejs import fails or encoding fails, this function throws.
+ */
+async function audioBufferToMp3Bytes(buffer: AudioBuffer, bitrateKbps = 96) {
+  const numChannels = buffer.numberOfChannels;
+  const sampleRate = buffer.sampleRate;
+
+  const encoder = new lamejs.Mp3Encoder(numChannels, sampleRate, bitrateKbps);
+  const blockSize = 1152;
+  const mp3Chunks: number[] = [];
+
+  const channelData: Float32Array[] = [];
+  for (let c = 0; c < numChannels; c++) {
+    channelData.push(buffer.getChannelData(c));
+  }
+
+  for (let i = 0; i < buffer.length; i += blockSize) {
+    const left16 = floatTo16BitPCM(channelData[0].subarray(i, i + blockSize));
+
+    let mp3buf: Int8Array | Int16Array | Uint8Array | number[];
+
+    if (numChannels === 1) {
+      mp3buf = encoder.encodeBuffer(left16);
+    } else {
+      const right16 = floatTo16BitPCM(
+        channelData[1].subarray(i, i + blockSize)
+      );
+      mp3buf = encoder.encodeBuffer(left16, right16);
+    }
+
+    if (mp3buf.length > 0) {
+      mp3Chunks.push(...mp3buf);
+    }
+  }
+
+  const flush = encoder.flush();
+  if (flush.length > 0) {
+    mp3Chunks.push(...flush);
+  }
+
+  return new Uint8Array(mp3Chunks);
+}
+
+/**
+ * Convert Blob -> MP3 Blob with debug logs
+ */
+async function blobToMp3Blob(blob: Blob, bitrateKbps = 96): Promise<Blob> {
+  console.log("[blobToMp3Blob] start", blob);
+  try {
+    const audioBuf = await decodeBlobToAudioBuffer(blob);
+    console.log("[blobToMp3Blob] decoded AudioBuffer", {
+      duration: audioBuf.duration,
+      channels: audioBuf.numberOfChannels,
+      sampleRate: audioBuf.sampleRate,
+    });
+
+    const bytes = await audioBufferToMp3Bytes(audioBuf, bitrateKbps);
+    console.log("[blobToMp3Blob] got MP3 bytes", bytes.length);
+
+    const mp3Blob = new Blob([bytes.buffer], { type: "audio/mpeg" });
+    console.log("[blobToMp3Blob] returning MP3 blob", mp3Blob);
+    return mp3Blob;
+  } catch (err) {
+    console.error("[blobToMp3Blob] conversion failed", err);
+    throw err;
+  }
+}
+
+/**
+ * Fallback: get duration by creating an Audio element and waiting for loadedmetadata.
+ */
+function durationFromAudioElement(
+  urlOrBlob: string | Blob,
+  timeoutMs = 5000
+): Promise<number> {
+  return new Promise((resolve) => {
+    try {
+      const a = new Audio();
+      a.preload = "metadata";
+      a.crossOrigin = "anonymous";
+      let settled = false;
+      const cleanup = () => {
+        a.onloadedmetadata = null;
+        a.onerror = null;
+        try {
+          a.src = "";
+        } catch {}
+      };
+      const onDone = (d: number) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(Number.isFinite(d) ? d : 0);
+      };
+      a.onloadedmetadata = () => {
+        onDone(a.duration || 0);
+      };
+      a.onerror = () => {
+        onDone(0);
+      };
+      const t = window.setTimeout(() => {
+        onDone(0);
+      }, timeoutMs);
+      // ensure we clear timeout on finish
+      const oldOnLoaded = a.onloadedmetadata;
+      a.onloadedmetadata = () => {
+        window.clearTimeout(t);
+        if (oldOnLoaded) oldOnLoaded.call(a);
+        onDone(a.duration || 0);
+      };
+      if (typeof urlOrBlob === "string") {
+        a.src = urlOrBlob;
+        try {
+          a.load();
+        } catch {}
+      } else {
+        a.src = URL.createObjectURL(urlOrBlob);
+        try {
+          a.load();
+        } catch {}
+      }
+    } catch {
+      resolve(0);
+    }
+  });
+}
+
+/* -------------------- Component -------------------- */
 
 export default function VoiceRecorder(): JSX.Element {
   const [isRecording, setIsRecording] = useState(false);
@@ -18,6 +179,8 @@ export default function VoiceRecorder(): JSX.Element {
   const [title, setTitle] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
 
+  // NOTE: originalBlob here will be the blob we use for playback/upload.
+  // It may be mp3 (preferred) or webm fallback.
   const [originalBlob, setOriginalBlob] = useState<Blob | null>(null);
   const [originalURL, setOriginalURL] = useState<string | null>(null);
   const [originalDuration, setOriginalDuration] = useState<number>(0);
@@ -45,13 +208,11 @@ export default function VoiceRecorder(): JSX.Element {
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
 
-  // player state map for cross-player pause/volume sync
   type PlayerState = { playing: boolean; current: number; volume: number };
   const [playerStateMap, setPlayerStateMap] = useState<
     Record<string, PlayerState>
   >({});
 
-  // start/stop recording
   const startRecording = async () => {
     try {
       cleanupAll();
@@ -65,25 +226,38 @@ export default function VoiceRecorder(): JSX.Element {
       };
 
       mr.onstop = async () => {
-        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        setOriginalBlob(blob);
-        const url = URL.createObjectURL(blob);
-        setOriginalURL(url);
+        setIsProcessing(true);
+        setProcessingProgress(5);
 
-        // decode to extract duration quickly for original
         try {
-          const arrayBuffer = await blob.arrayBuffer();
-          const Ctx = window.AudioContext || (window as any).webkitAudioContext;
-          const ctx = new Ctx();
-          const decoded = await ctx.decodeAudioData(arrayBuffer);
-          setOriginalDuration(decoded.duration || 0);
-          ctx.close().catch(() => {});
-        } catch (e) {
-          console.warn("Could not decode original duration", e);
-        }
+          const recordedBlob = new Blob(audioChunksRef.current, {
+            type: "audio/webm",
+          });
 
-        // process all voices
-        await processAllVoices(blob);
+          const playbackBlob = recordedBlob;
+          const playbackURL = URL.createObjectURL(playbackBlob);
+
+          let dur = 0;
+          try {
+            const buf = await decodeBlobToAudioBuffer(playbackBlob);
+            dur = buf.duration || 0;
+          } catch {
+            dur = await durationFromAudioElement(playbackBlob);
+          }
+          setProcessingProgress(25);
+
+          setOriginalBlob(playbackBlob);
+          setOriginalURL(playbackURL);
+          setOriginalDuration(dur);
+
+          await processAllVoices(recordedBlob);
+          setProcessingProgress(100);
+        } catch (e) {
+          console.error("Error in onstop processing:", e);
+        } finally {
+          setIsProcessing(false);
+          setProcessingProgress(0);
+        }
       };
 
       mr.start();
@@ -94,12 +268,14 @@ export default function VoiceRecorder(): JSX.Element {
         1000
       );
 
+      // safety timeout (5 minutes)
       setTimeout(() => {
         if (
           mediaRecorderRef.current &&
           mediaRecorderRef.current.state === "recording"
-        )
+        ) {
           stopRecording();
+        }
       }, 5 * 60 * 1000);
     } catch (err) {
       console.error("Mic error:", err);
@@ -121,12 +297,11 @@ export default function VoiceRecorder(): JSX.Element {
     }
   };
 
-  // process all voices and compute durations from the resulting blobs
-  const processAllVoices = async (blob: Blob) => {
+  // processAllVoices: keep your processAndCompress pipeline unchanged,
+  const processAllVoices = async (originalWebmBlob: Blob) => {
     setIsProcessing(true);
     setProcessingProgress(0);
 
-    // cleanup previous processed objectURLs
     VOICE_LIST.forEach((v) => {
       if (processedURLs[v]) URL.revokeObjectURL(processedURLs[v]!);
     });
@@ -135,10 +310,10 @@ export default function VoiceRecorder(): JSX.Element {
     setProcessedDurations({ voice1: 0, voice2: 0 });
 
     const total = VOICE_LIST.length;
+
     for (let i = 0; i < total; i++) {
       const v = VOICE_LIST[i];
       try {
-        // tiny delay so UI can update
         await new Promise((r) => setTimeout(r, 30));
 
         const opts = {
@@ -146,25 +321,36 @@ export default function VoiceRecorder(): JSX.Element {
           channels: 1,
           audioBitsPerSecond: 64000,
         };
-        const res = await processAndCompress(blob, v, opts);
 
-        // store blob & object URL
-        setProcessedBlobs((prev) => ({ ...prev, [v]: res.blob }));
-        const url = URL.createObjectURL(res.blob);
+        const res = await processAndCompress(originalWebmBlob, v, opts);
+        // ensure blob type is correct
+        const processedBlob = res.blob.type
+          ? res.blob
+          : new Blob([res.blob], { type: "audio/webm" });
+
+        // <<< Add this line to debug >>>
+        console.log(
+          "Processed blob info:",
+          v,
+          processedBlob,
+          processedBlob.size,
+          processedBlob.type
+        );
+
+        setProcessedBlobs((prev) => ({ ...prev, [v]: processedBlob }));
+        const url = URL.createObjectURL(processedBlob);
         setProcessedURLs((prev) => ({ ...prev, [v]: url }));
 
-        // decode the processed blob to get correct duration (robust)
+        // decode duration safely
         try {
-          const ab = await res.blob.arrayBuffer();
-          const Ctx = window.AudioContext || (window as any).webkitAudioContext;
-          const ctx = new Ctx();
-          const decoded = await ctx.decodeAudioData(ab);
-          const d = decoded.duration || 0;
-          setProcessedDurations((prev) => ({ ...prev, [v]: d }));
-          ctx.close().catch(() => {});
-        } catch (e) {
-          console.warn("Could not decode processed duration for", v, e);
-          setProcessedDurations((prev) => ({ ...prev, [v]: 0 }));
+          const buf = await decodeBlobToAudioBuffer(processedBlob);
+          setProcessedDurations((prev) => ({
+            ...prev,
+            [v]: buf.duration || 0,
+          }));
+        } catch {
+          const fallbackDur = await durationFromAudioElement(processedBlob);
+          setProcessedDurations((prev) => ({ ...prev, [v]: fallbackDur }));
         }
       } catch (err) {
         console.error("Processing failed for", v, err);
@@ -173,7 +359,6 @@ export default function VoiceRecorder(): JSX.Element {
       }
     }
 
-    // brief pause so UI isn't jumpy
     await new Promise((r) => setTimeout(r, 150));
     setIsProcessing(false);
     setProcessingProgress(0);
@@ -199,16 +384,12 @@ export default function VoiceRecorder(): JSX.Element {
 
     try {
       const mimeType = blobToSend.type || "audio/webm";
-      const ext = mimeType.split("/")[1] || "webm";
-      console.log(
-        "original dur " +
-          originalDuration +
-          " and modified duration v1 " +
-          processedDurations.voice1 +
-          " processed dur v2 " +
-          processedDurations.voice2
-      );
-
+      const ext =
+        mimeType === "audio/mpeg"
+          ? "mp3"
+          : mimeType === "audio/wav"
+          ? "wav"
+          : mimeType.split("/")[1] || "webm";
       const fd = new FormData();
       fd.append("audio", blobToSend, `${filename}.${ext}`);
       fd.append("title", title || "Untitled Recording");
@@ -232,7 +413,6 @@ export default function VoiceRecorder(): JSX.Element {
       );
 
       if (!res.ok) throw new Error("Upload failed");
-
       const data = await res.json();
       alert(`Uploaded! Record ID: ${data.recordId}`);
       cleanupAll();
@@ -242,7 +422,6 @@ export default function VoiceRecorder(): JSX.Element {
     }
   };
 
-  // cleanup memory and object URLs
   const cleanupAll = () => {
     if (originalURL) {
       URL.revokeObjectURL(originalURL);
@@ -262,7 +441,7 @@ export default function VoiceRecorder(): JSX.Element {
   };
 
   return (
-    <section className="voice-recorder w-full max-w-lg mx-auto p-4 bg-gray-800 text-white rounded-lg">
+    <section className="voice-recorder w-full max-w-lg mx-auto p-4 bg-pink-300 text-white rounded-lg">
       <h2 className="text-xl font-semibold mb-2">Send a Voice Recording</h2>
       <p className="text-sm mb-4">
         Record, preview processed voices, then send chosen audio.
@@ -294,7 +473,6 @@ export default function VoiceRecorder(): JSX.Element {
         <>
           {originalURL && (
             <div className="mb-6">
-              {/* Input fields */}
               <div className="mb-4">
                 <label
                   className="block text-sm font-medium mb-1"
@@ -328,11 +506,6 @@ export default function VoiceRecorder(): JSX.Element {
                   className="w-full px-3 py-2 rounded-md bg-gray-700 border border-gray-500 focus:outline-none focus:border-blue-400"
                 />
               </div>
-              <p className="text-xs text-gray-400 mb-4">
-                *Kingituste loosimises osalemiseks jäta oma telefoninumber –
-                seda näen vaid mina ja kasutan ainult võidu korral ühenduse
-                võtmiseks.
-              </p>
 
               <label className="block text-sm font-medium">
                 Original Voice:

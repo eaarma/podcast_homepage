@@ -6,16 +6,19 @@ export default function AdminLogin() {
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
+  const useProd = true; // flip this for testing
+
+  const API_BASE = useProd
+    ? "https://podcast-homepage.onrender.com"
+    : "http://localhost:4000";
+
   const handleLogin = async () => {
     try {
-      const res = await fetch(
-        "https://podcast-homepage.onrender.com/api/auth/login",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, password }),
-        }
-      );
+      const res = await fetch(`${API_BASE}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
 
       if (res.ok) {
         const data = await res.json();

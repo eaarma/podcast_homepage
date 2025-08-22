@@ -60,8 +60,9 @@ router.post("/", upload.single("audio"), async (req, res) => {
     }
 
     // Build filename & save to storage
-    const ext = path.extname(req.file.originalname) || ".webm";
-    // build safe base from title
+    // Build filename & save to storage
+    const ext = path.extname(req.file.originalname) || ".mp3"; // build safe base from title
+
     const baseFromTitle = rawTitle.trim() || "recording";
 
     // sanitize: replace spaces with underscore, strip non-alphanum _ - characters, limit length
