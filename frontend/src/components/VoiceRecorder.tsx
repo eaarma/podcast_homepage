@@ -4,8 +4,6 @@ import { processAndCompress } from "../utils/audioUtils";
 import type { VoiceType } from "../utils/audioUtils"; // type-only import
 import RecorderButton from "./RecorderButton";
 
-import lamejs from "@breezystack/lamejs";
-
 const VOICE_LIST: VoiceType[] = ["voice1", "voice2"];
 const VOICE_LABELS: Record<VoiceType, string> = {
   voice1: "Voice 1",
@@ -29,84 +27,6 @@ async function decodeBlobToAudioBuffer(blob: Blob): Promise<AudioBuffer> {
     try {
       ctx.close();
     } catch {}
-  }
-}
-
-function floatTo16BitPCM(float32: Float32Array) {
-  const out = new Int16Array(float32.length);
-  for (let i = 0; i < float32.length; i++) {
-    let s = Math.max(-1, Math.min(1, float32[i]));
-    out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-  }
-  return out;
-}
-
-/**
- * Try to convert an AudioBuffer to MP3 bytes using lamejs.
- * If lamejs import fails or encoding fails, this function throws.
- */
-async function audioBufferToMp3Bytes(buffer: AudioBuffer, bitrateKbps = 96) {
-  const numChannels = buffer.numberOfChannels;
-  const sampleRate = buffer.sampleRate;
-
-  const encoder = new lamejs.Mp3Encoder(numChannels, sampleRate, bitrateKbps);
-  const blockSize = 1152;
-  const mp3Chunks: number[] = [];
-
-  const channelData: Float32Array[] = [];
-  for (let c = 0; c < numChannels; c++) {
-    channelData.push(buffer.getChannelData(c));
-  }
-
-  for (let i = 0; i < buffer.length; i += blockSize) {
-    const left16 = floatTo16BitPCM(channelData[0].subarray(i, i + blockSize));
-
-    let mp3buf: Int8Array | Int16Array | Uint8Array | number[];
-
-    if (numChannels === 1) {
-      mp3buf = encoder.encodeBuffer(left16);
-    } else {
-      const right16 = floatTo16BitPCM(
-        channelData[1].subarray(i, i + blockSize)
-      );
-      mp3buf = encoder.encodeBuffer(left16, right16);
-    }
-
-    if (mp3buf.length > 0) {
-      mp3Chunks.push(...mp3buf);
-    }
-  }
-
-  const flush = encoder.flush();
-  if (flush.length > 0) {
-    mp3Chunks.push(...flush);
-  }
-
-  return new Uint8Array(mp3Chunks);
-}
-
-/**
- * Convert Blob -> MP3 Blob with debug logs
- */
-async function blobToMp3Blob(blob: Blob, bitrateKbps = 96): Promise<Blob> {
-  console.log("[blobToMp3Blob] start", blob);
-  try {
-    const audioBuf = await decodeBlobToAudioBuffer(blob);
-    console.log("[blobToMp3Blob] decoded AudioBuffer", {
-      duration: audioBuf.duration,
-      channels: audioBuf.numberOfChannels,
-      sampleRate: audioBuf.sampleRate,
-    });
-
-    const bytes = await audioBufferToMp3Bytes(audioBuf, bitrateKbps);
-    console.log("[blobToMp3Blob] got MP3 bytes", bytes.length);
-
-    const mp3Blob = new Blob([bytes.buffer], { type: "audio/mpeg" });
-    console.log("[blobToMp3Blob] returning MP3 blob", mp3Blob);
-    return mp3Blob;
-  } catch (err) {
-    console.error("[blobToMp3Blob] conversion failed", err);
-    throw err;
   }
 }
 
@@ -441,11 +361,14 @@ export default function VoiceRecorder(): JSX.Element {
   };
 
   return (
-    <section className="voice-recorder w-full max-w-lg mx-auto p-4 bg-pink-300 text-white rounded-lg">
-      <h2 className="text-xl font-semibold mb-2">Send a Voice Recording</h2>
-      <p className="text-sm mb-4">
-        Record, preview processed voices, then send chosen audio.
-      </p>
+    <section className="voice-recorder w-full max-w-lg mx-auto p-4 bg-pink-300 rounded-lg">
+      <h2
+        className="text-xl font-semibold mb-2  "
+        style={{ fontFamily: '"DM Sans", sans-serif', fontWeight: 700 }}
+      >
+        Saada häälsõnum
+      </h2>
+      <p className="text-sm mb-4">Salvesta, kuula ja saada oma häälsõnum.</p>
 
       <div className="flex flex-col items-center mb-4 space-y-2">
         <RecorderButton
@@ -458,9 +381,9 @@ export default function VoiceRecorder(): JSX.Element {
       </div>
 
       {isProcessing ? (
-        <div className="flex flex-col items-center justify-center p-6 bg-gray-900 rounded">
+        <div className="flex flex-col items-center justify-center p-6 bg-pink-300 rounded">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent mb-4" />
-          <div className="mb-2">Processing voices...</div>
+          <div className="mb-2">Töötlemine...</div>
           <div className="w-full bg-gray-700 h-2 rounded overflow-hidden mb-2">
             <div
               className="h-2 bg-green-400"
@@ -478,12 +401,12 @@ export default function VoiceRecorder(): JSX.Element {
                   className="block text-sm font-medium mb-1"
                   htmlFor="title"
                 >
-                  Title
+                  Pealkiri
                 </label>
                 <input
                   id="title"
                   type="text"
-                  placeholder="Add a title to the recording"
+                  placeholder="Lisa sõnumile pealkiri"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="w-full px-3 py-2 rounded-md bg-gray-700 border border-gray-500 focus:outline-none focus:border-blue-400"
@@ -495,21 +418,24 @@ export default function VoiceRecorder(): JSX.Element {
                   className="block text-sm font-medium mb-1"
                   htmlFor="phone"
                 >
-                  Phone number <span className="text-red-500">*</span>
+                  Telefoninumber <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="phone"
                   type="tel"
-                  placeholder="Enter phone number"
+                  placeholder="Sisesta telefoninumber"
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                   className="w-full px-3 py-2 rounded-md bg-gray-700 border border-gray-500 focus:outline-none focus:border-blue-400"
                 />
+                <p className="text-sm mb-4 mt-1">
+                  *Kingituste loosimises osalemiseks jäta oma telefoninumber –
+                  seda näen vaid mina ja kasutan ainult võidu korral ühenduse
+                  võtmiseks.
+                </p>
               </div>
 
-              <label className="block text-sm font-medium">
-                Original Voice:
-              </label>
+              <label className="block text-sm font-medium">Originaal:</label>
               <CustomAudioPlayer
                 url={originalURL}
                 duration={originalDuration}
@@ -522,10 +448,10 @@ export default function VoiceRecorder(): JSX.Element {
                 <div>
                   <button
                     onClick={() => handleUpload(true)}
-                    className="bg-blue-600 px-3 py-1 rounded hover:bg-blue-700"
+                    className="bg-blue-600 px-3 py-1 rounded hover:bg-blue-700 text-secondary"
                     disabled={isProcessing}
                   >
-                    Send Original
+                    Saada originaal
                   </button>
                 </div>
               </div>
@@ -535,20 +461,20 @@ export default function VoiceRecorder(): JSX.Element {
           {originalURL && (
             <div>
               <label className="block text-sm font-medium mb-2">
-                Modified Voices:
+                Muudetud hääled:
               </label>
               {VOICE_LIST.map((v) => (
-                <div key={v} className="mb-4 p-2 bg-gray-700 rounded">
+                <div key={v} className="mb-4 p-2 bg-pink-300 rounded">
                   <div className="flex items-center justify-between mb-1">
                     <span>{VOICE_LABELS[v]}</span>
                     <div className="space-x-2">
                       {processedBlobs[v] && (
                         <button
                           onClick={() => handleUpload(false, v)}
-                          className="bg-purple-600 px-2 py-1 rounded hover:bg-purple-700"
+                          className="bg-purple-600 px-2 py-1 rounded hover:bg-purple-700 text-secondary"
                           disabled={isProcessing}
                         >
-                          Send
+                          Saada
                         </button>
                       )}
                     </div>

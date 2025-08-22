@@ -9,7 +9,7 @@ const Introduction: React.FC<IntroductionProps> = ({ title, description }) => {
       <h1 className="text-3xl font-bold mb-4 whitespace-nowrap overflow-hidden text-ellipsis">
         {title}
       </h1>
-      <p className="text-lg text-gray-400">{description}</p>
+      <p className="text-lg">{description}</p>
     </div>
   );
 };

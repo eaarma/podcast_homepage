@@ -14,12 +14,12 @@ const Footer: React.FC<FooterProps> = ({ brand }) => {
         {/* Centered Text */}
         <div className="absolute left-1/2 transform -translate-x-1/2 text-center">
           <span>
-            &copy; {year} {brand} &mdash; page by{" "}
+            &copy; {year} {brand} &mdash;{" "}
             <a
               href="mailto:yourbusiness@email.com"
               className="text-blue-600 underline hover:text-blue-500 transition-colors"
             >
-              yourbusiness@email.com
+              business.kaisa@gmail.com
             </a>
           </span>
         </div>
