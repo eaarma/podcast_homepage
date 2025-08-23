@@ -1,35 +1,28 @@
 import express from "express";
-import fs from "fs";
-import path from "path";
 import { verifyToken } from "../middleware/verifyToken.js";
-import { fileURLToPath } from "url";
-import { dirname } from "path";
 import Ajv from "ajv";
 import { siteContentSchema } from "../schemas/siteContentSchema.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { rtdb } from "../firebase.js";
 
 const router = express.Router();
-const dataPath = path.join(__dirname, "../data/siteContent.json");
-
 const ajv = new Ajv();
+const validateFull = ajv.compile(siteContentSchema);
 
-// GET /api/content - get current content
-router.get("/", (req, res) => {
+// ✅ GET /api/content
+router.get("/", async (req, res) => {
   try {
-    const rawData = fs.readFileSync(dataPath, "utf8");
-    const content = JSON.parse(rawData);
+    const snapshot = await rtdb.ref("siteContent").once("value");
+    const content = snapshot.val();
+    if (!content) return res.json({});
     res.json(content);
   } catch (error) {
-    res.status(500).json({ message: "Failed to read content." });
+    console.error("GET content error:", error);
+    res.status(500).json({ message: "Failed to fetch content." });
   }
 });
 
-const validateFull = ajv.compile(siteContentSchema);
-
-// POST
-router.post("/", verifyToken, (req, res) => {
+// ✅ POST /api/content (replace full content)
+router.post("/", verifyToken, async (req, res) => {
   const newContent = req.body;
 
   if (!newContent || typeof newContent !== "object") {
@@ -44,15 +37,16 @@ router.post("/", verifyToken, (req, res) => {
   }
 
   try {
-    fs.writeFileSync(dataPath, JSON.stringify(newContent, null, 2));
+    await rtdb.ref("siteContent").set(newContent);
     res.json({ message: "Content replaced successfully" });
   } catch (error) {
+    console.error("POST content error:", error);
     res.status(500).json({ message: "Failed to update content." });
   }
 });
 
-// PUT
-router.put("/", verifyToken, (req, res) => {
+// ✅ PUT /api/content (merge/partial update)
+router.put("/", verifyToken, async (req, res) => {
   const updates = req.body;
 
   if (!updates || typeof updates !== "object") {
@@ -60,7 +54,8 @@ router.put("/", verifyToken, (req, res) => {
   }
 
   try {
-    const existingData = JSON.parse(fs.readFileSync(dataPath, "utf8"));
+    const snapshot = await rtdb.ref("siteContent").once("value");
+    const existingData = snapshot.val() || {};
     const mergedData = deepMerge(existingData, updates);
 
     if (!validateFull(mergedData)) {
@@ -70,14 +65,15 @@ router.put("/", verifyToken, (req, res) => {
       });
     }
 
-    fs.writeFileSync(dataPath, JSON.stringify(mergedData, null, 2));
+    await rtdb.ref("siteContent").set(mergedData);
     res.json({ message: "Content updated successfully", updated: mergedData });
   } catch (error) {
+    console.error("PUT content error:", error);
     res.status(500).json({ message: "Failed to update content." });
   }
 });
 
-// Deep merge helper
+// 🔧 Deep merge helper
 function deepMerge(target, source) {
   const result = { ...target };
   for (const key in source) {

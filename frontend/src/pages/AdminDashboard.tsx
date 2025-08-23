@@ -10,7 +10,7 @@ const AdminDashboard = () => {
       {/* Back Button */}
       <button
         onClick={() => navigate(-1)} // goes back one step in history
-        className="mb-6 text-sm text-white hover:text-gray-400 transition-colors flex items-center gap-1"
+        className="mb-6 text-sm text-secondary hover:text-gray-400 transition-colors flex items-center gap-1"
         aria-label="Go back"
       >
         ← Back
