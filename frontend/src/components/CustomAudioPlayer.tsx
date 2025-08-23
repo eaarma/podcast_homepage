@@ -400,7 +400,7 @@ export default function CustomAudioPlayer({
         style={{ display: "none" }}
       />
 
-      <div className="flex items-center space-x-3">
+      <div className="flex items-center space-x-3 overflow-x-auto">
         <button
           onClick={togglePlay}
           style={{
@@ -420,6 +420,7 @@ export default function CustomAudioPlayer({
           {playing ? PauseSVG : PlaySVG}
         </button>
 
+        {/* Progress bar */}
         <input
           type="range"
           min={0}
@@ -427,21 +428,24 @@ export default function CustomAudioPlayer({
           step="0.01"
           value={Math.min(current, localDuration || 0)}
           onChange={(e) => onSeek(Number(e.target.value))}
-          className="media-range flex-1 min-w-0 mx-2"
+          className="media-range flex-1 mx-2"
           style={{
-            // percent of current relative to max
+            minWidth: "100px", // ✅ don’t let it collapse
+            flexShrink: 1, // ✅ shrink but respect minWidth
             ["--range-progress" as any]: `${
               localDuration ? (current / localDuration) * 100 : 0
             }%`,
           }}
         />
 
+        {/* Time display */}
         <div className="text-sm text-white font-mono whitespace-nowrap w-20 text-right m-2">
           {formatTime(current)} / {formatTime(localDuration)}
         </div>
 
-        <div className="flex items-center space-x-2 ml-2 w-28">
-          <span className="text-sm text-gray-300" aria-hidden m-2>
+        {/* Volume control */}
+        <div className="flex items-center space-x-2 ml-2 w-20 sm:w-28">
+          <span className="text-sm text-gray-300" aria-hidden>
             {VolumeSVG}
           </span>
           <input
