@@ -5,9 +5,6 @@ import type { VoiceType } from "../utils/audioUtils"; // type-only import
 import RecorderButton from "./RecorderButton";
 
 const VOICE_LIST: VoiceType[] = ["voice1"];
-const VOICE_LABELS: Record<VoiceType, string> = {
-  voice1: "Voice 1",
-};
 
 /* -------------------- Helpers -------------------- */
 
@@ -133,7 +130,19 @@ export default function VoiceRecorder(): JSX.Element {
     try {
       cleanupAll();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      // Choose a supported mimeType
+      let mimeType = "";
+      if (MediaRecorder.isTypeSupported("audio/webm")) {
+        mimeType = "audio/webm";
+      } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
+        mimeType = "audio/mp4";
+      } else if (MediaRecorder.isTypeSupported("audio/aac")) {
+        mimeType = "audio/aac";
+      }
+
+      // Fallback if none supported
+      const options = mimeType ? { mimeType } : undefined;
+      const mr = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mr;
       audioChunksRef.current = [];
 
