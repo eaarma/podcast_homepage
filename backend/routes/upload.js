@@ -5,20 +5,19 @@ import { admin, bucket } from "../firebase.js";
 import { parseBuffer } from "music-metadata";
 import ffmpeg from "fluent-ffmpeg";
 import stream from "stream";
-import { promisify } from "util";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
-const bufferToStream = (buffer: Buffer) => {
+
+const bufferToStream = (buffer) => {
   const readable = new stream.PassThrough();
   readable.end(buffer);
   return readable;
 };
-const ffmpegToBuffer = (inputBuffer: Buffer) =>
-  new Promise() <
-  Buffer >
-  ((resolve, reject) => {
-    const chunks: Buffer[] = [];
+
+const ffmpegToBuffer = (inputBuffer) =>
+  new Promise((resolve, reject) => {
+    const chunks = [];
     ffmpeg(bufferToStream(inputBuffer))
       .toFormat("mp3")
       .audioBitrate(128)
