@@ -156,7 +156,7 @@ export default function VoiceRecorder(): JSX.Element {
 
         try {
           const recordedBlob = new Blob(audioChunksRef.current, {
-            type: "audio/webm",
+            type: "audio/wav",
           });
 
           const playbackBlob = recordedBlob;
@@ -251,7 +251,7 @@ export default function VoiceRecorder(): JSX.Element {
         // ensure blob type is correct
         const processedBlob = res.blob.type
           ? res.blob
-          : new Blob([res.blob], { type: "audio/webm" });
+          : new Blob([res.blob], { type: "audio/wav" });
 
         // <<< Add this line to debug >>>
         console.log(
