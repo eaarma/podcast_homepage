@@ -11,7 +11,9 @@ const HomePage: React.FC<HomePageProps> = ({ data }) => {
   return (
     <>
       <Introduction title={data.title} description={data.description} />
-      <VoiceRecorder />
+      <div className="w-full m-3 mb-10">
+        <VoiceRecorder />
+      </div>
       {/*  <PreviousEpisode
         linkTitle={data.videoLink?.title}
         linkTarget={data.videoLink?.youtubeLink}
