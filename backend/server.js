@@ -20,6 +20,8 @@ const corsOptions = {
   origin: [
     "http://localhost:5173", // for local dev
     "https://podcast-homepage.vercel.app", // deployed frontend
+    "https://www.kirsstordil.com",
+    "https://kirsstordil.com",
   ],
   credentials: true,
 };
