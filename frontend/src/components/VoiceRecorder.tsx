@@ -467,23 +467,25 @@ export default function VoiceRecorder(): JSX.Element {
                   <label className="block text-sm font-medium">
                     Originaal:
                   </label>
-                  <CustomAudioPlayer
-                    url={originalURL}
-                    duration={originalDuration}
-                    disabled={isProcessing}
-                    playerStateMap={playerStateMap}
-                    setPlayerStateMap={setPlayerStateMap}
-                  />
-                  <div className="flex items-center justify-between mt-2">
-                    <div className="text-sm"></div>
-                    <div>
-                      <button
-                        onClick={() => handleUpload(true)}
-                        className="bg-blue-600 px-3 py-1 rounded hover:bg-blue-700 text-secondary"
-                        disabled={isProcessing}
-                      >
-                        Saada originaal
-                      </button>
+                  <div className="p-2">
+                    <CustomAudioPlayer
+                      url={originalURL}
+                      duration={originalDuration}
+                      disabled={isProcessing}
+                      playerStateMap={playerStateMap}
+                      setPlayerStateMap={setPlayerStateMap}
+                    />
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="text-sm"></div>
+                      <div>
+                        <button
+                          onClick={() => handleUpload(true)}
+                          className="bg-blue-600 px-3 py-1 rounded hover:bg-blue-700 text-secondary"
+                          disabled={isProcessing}
+                        >
+                          Saada originaal
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -496,8 +498,6 @@ export default function VoiceRecorder(): JSX.Element {
                   </label>
                   {VOICE_LIST.map((v) => (
                     <div key={v} className="mb-4 p-2 bg-pink-300 rounded">
-                      <div className="flex items-center justify-between mb-1"></div>
-
                       {processedURLs[v] ? (
                         <CustomAudioPlayer
                           url={processedURLs[v]!}
