@@ -16,7 +16,7 @@ const Footer: React.FC<FooterProps> = ({ brand }) => {
           <span>
             &copy; {year} {brand} &mdash;{" "}
             <a
-              href="mailto:yourbusiness@email.com"
+              href="mailto:business.kaisa@gmail.com"
               className="text-blue-600 underline hover:text-blue-500 transition-colors"
             >
               business.kaisa@gmail.com

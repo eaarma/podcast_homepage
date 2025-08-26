@@ -339,10 +339,11 @@ export default function VoiceRecorder(): JSX.Element {
 
       if (!res.ok) throw new Error("Upload failed");
       const data = await res.json();
-      alert(`Uploaded! Record ID: ${data.recordId}`);
+      alert("Häälsõnum saadetud! Aitäh! 🍒");
       cleanupAll();
     } catch (err) {
       console.error("Upload error:", err);
+
       alert("Upload failed (see console)");
     }
   };
