@@ -3,6 +3,7 @@ import CustomAudioPlayer from "./CustomAudioPlayer";
 import { processAndCompress } from "../utils/audioUtils";
 import type { VoiceType } from "../utils/audioUtils"; // type-only import
 import RecorderButton from "./RecorderButton";
+import axios from "axios";
 
 const VOICE_LIST: VoiceType[] = ["voice1"];
 
@@ -94,6 +95,8 @@ export default function VoiceRecorder(): JSX.Element {
   const [recordingTime, setRecordingTime] = useState(0);
   const [title, setTitle] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   // NOTE: originalBlob here will be the blob we use for playback/upload.
   // It may be mp3 (preferred) or webm fallback.
@@ -308,6 +311,9 @@ export default function VoiceRecorder(): JSX.Element {
     }
 
     try {
+      setIsUploading(true);
+      setUploadProgress(0);
+
       const mimeType = blobToSend.type || "audio/webm";
       const ext =
         mimeType === "audio/mpeg"
@@ -315,6 +321,7 @@ export default function VoiceRecorder(): JSX.Element {
           : mimeType === "audio/wav"
           ? "wav"
           : mimeType.split("/")[1] || "webm";
+
       const fd = new FormData();
       fd.append("audio", blobToSend, `${filename}.${ext}`);
       fd.append("title", title || "Untitled Recording");
@@ -329,22 +336,23 @@ export default function VoiceRecorder(): JSX.Element {
           : "0"
       );
 
-      const res = await fetch(
-        "https://podcast-homepage.onrender.com/api/upload",
-        {
-          method: "POST",
-          body: fd,
-        }
-      );
+      await axios.post("https://podcast-homepage.onrender.com/api/upload", fd, {
+        onUploadProgress: (progressEvent) => {
+          const percent = Math.round(
+            (progressEvent.loaded * 100) / (progressEvent.total || 1)
+          );
+          setUploadProgress(percent);
+        },
+      });
 
-      if (!res.ok) throw new Error("Upload failed");
-      const data = await res.json();
       alert("Häälsõnum saadetud! Aitäh! 🍒");
       cleanupAll();
     } catch (err) {
       console.error("Upload error:", err);
-
       alert("Upload failed (see console)");
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -368,139 +376,158 @@ export default function VoiceRecorder(): JSX.Element {
 
   return (
     <section className="voice-recorder w-full max-w-lg mx-auto p-4 bg-pink-300 rounded-lg">
-      <h2
-        className="text-xl font-semibold mb-2  "
-        style={{ fontFamily: '"DM Sans", sans-serif', fontWeight: 700 }}
-      >
-        Saada häälsõnum
-      </h2>
-      <p className="text-sm mb-4">Salvesta, kuula ja saada oma häälsõnum.</p>
-
-      <div className="flex flex-col items-center mb-4 space-y-2">
-        <RecorderButton
-          startRecording={startRecording}
-          stopRecording={stopRecording}
-          isProcessing={isProcessing}
-          recordingTime={recordingTime}
-          isRecording={isRecording}
-        />
-      </div>
-
-      {isProcessing ? (
+      {isUploading ? (
         <div className="flex flex-col items-center justify-center p-6 bg-pink-300 rounded">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent mb-4" />
-          <div className="mb-2">Töötlemine...</div>
+          <div className="mb-2">Audio üleslaadimine...</div>
           <div className="w-full bg-gray-700 h-2 rounded overflow-hidden mb-2">
             <div
-              className="h-2 bg-green-400"
-              style={{ width: `${processingProgress}%` }}
+              className="h-2 bg-blue-400"
+              style={{ width: `${uploadProgress}%` }}
             />
           </div>
-          <div className="text-sm text-gray-300">{processingProgress}%</div>
+          <div className="text-sm text-gray-300">{uploadProgress}%</div>
         </div>
       ) : (
         <>
-          {originalURL && (
-            <div className="mb-6">
-              <div className="mb-4">
-                <label
-                  className="block text-sm font-medium mb-1"
-                  htmlFor="title"
-                >
-                  Pealkiri
-                </label>
-                <input
-                  id="title"
-                  type="text"
-                  placeholder="Lisa sõnumile pealkiri"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-3 py-2 rounded-md bg-gray-700 border border-gray-500 focus:outline-none focus:border-blue-400"
+          <h2
+            className="text-xl font-semibold mb-2  "
+            style={{ fontFamily: '"DM Sans", sans-serif', fontWeight: 700 }}
+          >
+            Saada häälsõnum
+          </h2>
+          <p className="text-sm mb-4">
+            Salvesta, kuula ja saada oma häälsõnum.
+          </p>
+
+          <div className="flex flex-col items-center mb-4 space-y-2">
+            <RecorderButton
+              startRecording={startRecording}
+              stopRecording={stopRecording}
+              isProcessing={isProcessing}
+              recordingTime={recordingTime}
+              isRecording={isRecording}
+            />
+          </div>
+
+          {isProcessing ? (
+            <div className="flex flex-col items-center justify-center p-6 bg-pink-300 rounded">
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent mb-4" />
+              <div className="mb-2">Töötlemine...</div>
+              <div className="w-full bg-gray-700 h-2 rounded overflow-hidden mb-2">
+                <div
+                  className="h-2 bg-green-400"
+                  style={{ width: `${processingProgress}%` }}
                 />
               </div>
-
-              <div className="mb-2">
-                <label
-                  className="block text-sm font-medium mb-1"
-                  htmlFor="phone"
-                >
-                  Telefoninumber <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="phone"
-                  type="tel"
-                  placeholder="Sisesta telefoninumber"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  className="w-full px-3 py-2 rounded-md bg-gray-700 border border-gray-500 focus:outline-none focus:border-blue-400"
-                />
-                <p className="text-sm mb-4 mt-1">
-                  *Kingituste loosimises osalemiseks jäta oma telefoninumber –
-                  seda näen vaid mina ja kasutan ainult võidu korral ühenduse
-                  võtmiseks.
-                </p>
-              </div>
-
-              <label className="block text-sm font-medium">Originaal:</label>
-              <CustomAudioPlayer
-                url={originalURL}
-                duration={originalDuration}
-                disabled={isProcessing}
-                playerStateMap={playerStateMap}
-                setPlayerStateMap={setPlayerStateMap}
-              />
-              <div className="flex items-center justify-between mt-2">
-                <div className="text-sm"></div>
-                <div>
-                  <button
-                    onClick={() => handleUpload(true)}
-                    className="bg-blue-600 px-3 py-1 rounded hover:bg-blue-700 text-secondary"
-                    disabled={isProcessing}
-                  >
-                    Saada originaal
-                  </button>
-                </div>
-              </div>
+              <div className="text-sm text-gray-300">{processingProgress}%</div>
             </div>
-          )}
-
-          {originalURL && (
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Muudetud häälega:
-              </label>
-              {VOICE_LIST.map((v) => (
-                <div key={v} className="mb-4 p-2 bg-pink-300 rounded">
-                  <div className="flex items-center justify-between mb-1"></div>
-
-                  {processedURLs[v] ? (
-                    <CustomAudioPlayer
-                      url={processedURLs[v]!}
-                      duration={processedDurations[v]}
-                      disabled={isProcessing}
-                      playerStateMap={playerStateMap}
-                      setPlayerStateMap={setPlayerStateMap}
+          ) : (
+            <>
+              {originalURL && (
+                <div className="mb-6">
+                  <div className="mb-4">
+                    <label
+                      className="block text-sm font-medium mb-1"
+                      htmlFor="title"
+                    >
+                      Pealkiri
+                    </label>
+                    <input
+                      id="title"
+                      type="text"
+                      placeholder="Lisa sõnumile pealkiri"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      className="w-full px-3 py-2 rounded-md bg-gray-700 border border-gray-500 focus:outline-none focus:border-blue-400"
                     />
-                  ) : (
-                    <div className="text-sm text-gray-400">
-                      Not generated yet
-                    </div>
-                  )}
+                  </div>
 
-                  <div className="flex justify-end space-x-2">
-                    {processedBlobs[v] && (
+                  <div className="mb-2">
+                    <label
+                      className="block text-sm font-medium mb-1"
+                      htmlFor="phone"
+                    >
+                      Telefoninumber <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="phone"
+                      type="tel"
+                      placeholder="Sisesta telefoninumber"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      className="w-full px-3 py-2 rounded-md bg-gray-700 border border-gray-500 focus:outline-none focus:border-blue-400"
+                    />
+                    <p className="text-sm mb-4 mt-1">
+                      *Kingituste loosimises osalemiseks jäta oma telefoninumber
+                      – seda näen vaid mina ja kasutan ainult võidu korral
+                      ühenduse võtmiseks.
+                    </p>
+                  </div>
+
+                  <label className="block text-sm font-medium">
+                    Originaal:
+                  </label>
+                  <CustomAudioPlayer
+                    url={originalURL}
+                    duration={originalDuration}
+                    disabled={isProcessing}
+                    playerStateMap={playerStateMap}
+                    setPlayerStateMap={setPlayerStateMap}
+                  />
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="text-sm"></div>
+                    <div>
                       <button
-                        onClick={() => handleUpload(false, v)}
-                        className="bg-purple-600 px-2 py-1 rounded hover:bg-purple-700 text-secondary"
+                        onClick={() => handleUpload(true)}
+                        className="bg-blue-600 px-3 py-1 rounded hover:bg-blue-700 text-secondary"
                         disabled={isProcessing}
                       >
-                        Saada
+                        Saada originaal
                       </button>
-                    )}
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
+              )}
+
+              {originalURL && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Muudetud häälega:
+                  </label>
+                  {VOICE_LIST.map((v) => (
+                    <div key={v} className="mb-4 p-2 bg-pink-300 rounded">
+                      <div className="flex items-center justify-between mb-1"></div>
+
+                      {processedURLs[v] ? (
+                        <CustomAudioPlayer
+                          url={processedURLs[v]!}
+                          duration={processedDurations[v]}
+                          disabled={isProcessing}
+                          playerStateMap={playerStateMap}
+                          setPlayerStateMap={setPlayerStateMap}
+                        />
+                      ) : (
+                        <div className="text-sm text-gray-400">
+                          Not generated yet
+                        </div>
+                      )}
+
+                      <div className="flex justify-end space-x-2">
+                        {processedBlobs[v] && (
+                          <button
+                            onClick={() => handleUpload(false, v)}
+                            className="bg-purple-600 px-2 py-1 rounded hover:bg-purple-700 text-secondary"
+                            disabled={isProcessing}
+                          >
+                            Saada
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </>
       )}

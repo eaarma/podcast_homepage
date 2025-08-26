@@ -10,7 +10,7 @@ const Footer: React.FC<FooterProps> = ({ brand }) => {
 
   return (
     <footer className="w-full bg-gray-100 border-t border-gray-300 text-sm text-gray-600">
-      <div className="max-w-6xl mx-auto px-4 py-4 flex items-center relative">
+      <div className="max-w-6xl mx-auto px-4 py-4 flex items-center relative m-3">
         {/* Centered Text */}
         <div className="absolute left-1/2 transform -translate-x-1/2 text-center">
           <span>
