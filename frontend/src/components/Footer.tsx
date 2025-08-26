@@ -25,7 +25,7 @@ const Footer: React.FC<FooterProps> = ({ brand }) => {
         </div>
 
         {/* Right-Aligned Subtle Button */}
-        <div className="ml-auto">
+        {/*   <div className="ml-auto">
           <button
             onClick={() => navigate("/admin/login")}
             className="text-xs text-gray-400 hover:text-gray-600 opacity-20 hover:opacity-60 transition-opacity"
@@ -33,7 +33,7 @@ const Footer: React.FC<FooterProps> = ({ brand }) => {
           >
             🛠️
           </button>
-        </div>
+        </div> */}
       </div>
     </footer>
   );
