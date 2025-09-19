@@ -14,10 +14,10 @@ const HomePage: React.FC<HomePageProps> = ({ data }) => {
       <div className="w-full m-3 mb-10">
         <VoiceRecorder />
       </div>
-      {/*  <PreviousEpisode
+      <PreviousEpisode
         linkTitle={data.videoLink?.title}
         linkTarget={data.videoLink?.youtubeLink}
-      /> */}
+      />
       <SocialLinks
         instagram={data.socials?.instagram}
         youtube={data.socials?.youtube}
