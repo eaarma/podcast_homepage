@@ -12,6 +12,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@sentry/node": "^10.33.0",
     "ajv": "^8.17.1",
     "backend": "file:",
     "bcryptjs": "^3.0.2",
@@ -23,6 +24,7 @@
     "fluent-ffmpeg": "^2.1.3",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.0",
-    "music-metadata": "^11.8.2"
+    "music-metadata": "^11.8.2",
+    "winston": "^3.19.0"
   }
 }
