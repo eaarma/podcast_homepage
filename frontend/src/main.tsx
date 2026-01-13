@@ -5,6 +5,17 @@ import App from "./App";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import "./index.css";
+import * as Sentry from "@sentry/react";
+
+Sentry.init({
+  dsn: import.meta.env.VITE_SENTRY_DSN,
+  integrations: [
+    Sentry.browserTracingIntegration({
+      enableInp: true,
+    }),
+  ],
+  tracesSampleRate: 1.0,
+});
 
 const isLoggedIn = () => !!localStorage.getItem("admin-token");
 
