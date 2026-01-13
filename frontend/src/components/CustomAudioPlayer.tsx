@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 
+import * as Sentry from "@sentry/react";
+
 type PlayerState = {
   playing: boolean;
   current: number;
@@ -138,6 +140,19 @@ export default function CustomAudioPlayer({
 
     // safety timeout: stop probing after 5s
     probeTimeoutRef.current = window.setTimeout(() => {
+      Sentry.captureMessage("Audio duration probe failed", {
+        level: "warning",
+        tags: {
+          feature: "audio-playback",
+          stage: "duration-probe",
+        },
+        extra: {
+          url,
+          duration: el.duration,
+          readyState: el.readyState,
+          networkState: el.networkState,
+        },
+      });
       el.removeEventListener("durationchange", onDurationChange);
       el.removeEventListener("timeupdate", onTimeUpdate);
       probingRef.current = false;
@@ -169,7 +184,22 @@ export default function CustomAudioPlayer({
         setLocalDuration(dur);
       } else {
         // duration is not usable -> start probing
-        startProbe(el);
+        if (!isFinite(dur) || dur <= 0) {
+          Sentry.captureMessage("Invalid audio duration after metadata", {
+            level: "warning",
+            tags: {
+              feature: "audio-playback",
+              stage: "metadata",
+            },
+            extra: {
+              url,
+              duration: dur,
+              readyState: el.readyState,
+            },
+          });
+
+          startProbe(el);
+        }
       }
 
       // ensure shared map entry exists
@@ -208,6 +238,23 @@ export default function CustomAudioPlayer({
     };
 
     const onError = () => {
+      const mediaError = el.error;
+
+      Sentry.captureMessage("Audio element error", {
+        level: "error",
+        tags: {
+          feature: "audio-playback",
+          stage: "media-error",
+        },
+        extra: {
+          url,
+          code: mediaError?.code,
+          message: mediaError?.message,
+          readyState: el.readyState,
+          networkState: el.networkState,
+          src: el.currentSrc,
+        },
+      });
       // if metadata couldn't be loaded, try probe (sometimes probing helps)
       startProbe(el);
     };
@@ -294,6 +341,19 @@ export default function CustomAudioPlayer({
       }
       setPlaying(true);
     } catch (e) {
+      Sentry.captureException(e, {
+        tags: {
+          feature: "audio-playback",
+          stage: "play",
+        },
+        extra: {
+          url,
+          volume: vol,
+          currentTime: el.currentTime,
+          readyState: el.readyState,
+          networkState: el.networkState,
+        },
+      });
       console.warn("Play failed:", e);
       setPlaying(false);
       setPlayerStateMap((prev) => ({
