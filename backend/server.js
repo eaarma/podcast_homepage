@@ -17,12 +17,10 @@ const __dirname = dirname(__filename);
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
   environment: process.env.NODE_ENV || "development",
+  integrations: [Sentry.expressIntegration()],
 });
 
 const app = express();
-
-// Sentry request handler (must be early)
-app.use(Sentry.Handlers.requestHandler());
 
 const PORT = process.env.PORT || 4000;
 
@@ -56,14 +54,13 @@ app.use("/api/upload", uploadRoutes);
 app.use("/uploadimage", imageUploadRoutes);
 app.use("/audio", audioRoutes);
 
+Sentry.setupExpressErrorHandler(app);
+
 // Example download route
 app.get("/audio/download/:filename", (req, res) => {
   const file = path.join(__dirname, "your-audio-folder", req.params.filename);
   res.download(file);
 });
-
-// 🧨 Sentry error handler (MUST be after routes)
-app.use(Sentry.Handlers.errorHandler());
 
 // Fallback error handler
 app.use((err, req, res, next) => {
