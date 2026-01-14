@@ -50,6 +50,8 @@ export default function CustomAudioPlayer({
     isFinite(Number(duration || 0)) && (duration || 0) > 0 ? duration! : 0
   );
 
+  const playInProgressRef = useRef(false);
+
   // ensure an entry in shared map
   useEffect(() => {
     setPlayerStateMap((prev) => ({
@@ -84,6 +86,8 @@ export default function CustomAudioPlayer({
   // try to probe duration by seeking near the end (workaround for Infinity/0)
   const startProbe = (el: HTMLAudioElement) => {
     if (!el || probingRef.current) return;
+    if (playInProgressRef.current) return;
+
     probingRef.current = true;
 
     // If browser supports seeking, set a very large currentTime to prompt the player
@@ -168,13 +172,17 @@ export default function CustomAudioPlayer({
     el.crossOrigin = "anonymous";
     el.preload = "metadata";
 
-    // always set src then load to trigger metadata fetch
-    if (el.src !== url) {
+    // set src ONLY once per element
+    if (!el.src) {
       el.src = url;
     }
-    try {
-      el.load();
-    } catch {}
+
+    // only load if nothing has been loaded yet
+    if (el.readyState === 0) {
+      try {
+        el.load();
+      } catch {}
+    }
 
     // handlers
     const onLoadedMetadata = () => {
@@ -294,7 +302,7 @@ export default function CustomAudioPlayer({
   }, [playerStateMap]);
 
   // helper: pause other audio elements synchronously
-  const pauseOtherAudioElements = () => {
+  /* const pauseOtherAudioElements = () => {
     try {
       const audios = document.querySelectorAll("audio");
       audios.forEach((a) => {
@@ -305,7 +313,7 @@ export default function CustomAudioPlayer({
         }
       });
     } catch {}
-  };
+  }; */
 
   // play/pause
   const togglePlay = async () => {
@@ -330,17 +338,30 @@ export default function CustomAudioPlayer({
       return;
     }
 
-    pauseOtherAudioElements();
+    //pauseOtherAudioElements();
     requestPlay(url, el);
 
     try {
       el.volume = vol;
+      playInProgressRef.current = true;
+
+      if (el.readyState < 2) {
+  await new Promise((resolve) =>
+    el.addEventListener("loadedmetadata", resolve, { once: true })
+  );
+}
+
+
       const p = el.play();
       if (p && typeof (p as Promise<void>).then === "function") {
         await p;
       }
       setPlaying(true);
+playInProgressRef.current = false;
+
     } catch (e) {
+      playInProgressRef.current = false;
+
       Sentry.captureException(e, {
         tags: {
           feature: "audio-playback",
